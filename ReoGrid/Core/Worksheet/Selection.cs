@@ -1320,14 +1320,77 @@ namespace unvell.ReoGrid
 			//bool selectionChanged = false;
 			CellPosition endpos = this.selEnd;
 
-			if ((rowOrColumn & RowOrColumn.Row) == RowOrColumn.Row)
-			{
-				endpos.Row = 0;
+			var rowIncrementer = (rowOrColumn & RowOrColumn.Row) == RowOrColumn.Row ? -1 : 0;
+			var colIncrementer = (rowOrColumn & RowOrColumn.Column) == RowOrColumn.Column ? -1 : 0;
+
+			if (endpos.Row + rowIncrementer >= 0 && endpos.Col + colIncrementer >= 0) {
+				endpos.Row += rowIncrementer;
+				endpos.Col += colIncrementer;
 			}
 
-			if ((rowOrColumn & RowOrColumn.Column) == RowOrColumn.Column)
-			{
-				endpos.Col = 0;
+			bool IsCellNull(int row, int col) {
+				if (this.Cells[row, col] == null) return true;
+
+				var cell = this.Cells[row, col];
+				if (!cell.MergeEndPos.IsEmpty) {
+					if (row == Math.Min(cell.MergeStartPos.Row, cell.MergeEndPos.Row)
+						&& col == Math.Min(cell.MergeStartPos.Col, cell.MergeEndPos.Col)) {
+						
+						return !(cell.Data != null && !string.IsNullOrEmpty(cell.GetData<string>()));
+					}
+				}
+				return true;
+			}
+
+			bool IsCellNotNull(int row, int col) {
+				if (this.Cells[row, col] == null) return false;
+
+				var cell = this.Cells[row, col];
+				if (!cell.MergeEndPos.IsEmpty) {
+					if (row == Math.Min(cell.MergeStartPos.Row, cell.MergeEndPos.Row)
+					    && col == Math.Min(cell.MergeStartPos.Col, cell.MergeEndPos.Col)) {
+
+						return cell.Data != null && !string.IsNullOrEmpty(cell.GetData<string>());
+					}
+				}
+				return cell.Data != null && !string.IsNullOrEmpty(cell.GetData<string>());
+			};
+
+			CellPosition FindCellToMove(CellPosition startPos, 
+				Func<int, int, bool> @while, 
+				Func<int, int, bool> breakIf,
+				Func<int, int, CellPosition> breakAct) {
+				
+				var workPos = new CellPosition(startPos.Row, startPos.Col);
+				
+				while(@while(workPos.Row, workPos.Col)) {
+					if (workPos.Row + rowIncrementer < 0 || workPos.Col + colIncrementer < 0) {
+						// no more cell.
+						return workPos;
+					}
+
+					workPos.Row += rowIncrementer;
+					workPos.Col += colIncrementer;
+
+					if (@breakIf(workPos.Row, workPos.Col)) {
+						// edge found.
+						if (breakAct != null) {
+							return breakAct(workPos.Row, workPos.Col);
+						}
+
+						return workPos;
+					}
+				}
+
+				return workPos;
+			}
+
+			if (IsCellNotNull(endpos.Row, endpos.Col)) {
+				endpos = FindCellToMove(endpos, IsCellNotNull, IsCellNull,
+					(r, c) => new CellPosition(r - rowIncrementer, c - colIncrementer));
+			}
+			else {
+				endpos = FindCellToMove(endpos, IsCellNull, IsCellNotNull, null);
 			}
 
 			if (endpos != this.selEnd)
@@ -1351,16 +1414,82 @@ namespace unvell.ReoGrid
 			//bool selectionChanged = false;
 			var endpos = this.selEnd;
 
-			if ((rowOrColumn & RowOrColumn.Row) == RowOrColumn.Row)
-			{
-				endpos.Row = this.rows.Count - 1;
+			var rowIncrementer = (rowOrColumn & RowOrColumn.Row) == RowOrColumn.Row ? 1 : 0;
+			var colIncrementer = (rowOrColumn & RowOrColumn.Column) == RowOrColumn.Column ? 1 : 0;
+
+			if (0 <= endpos.Row + rowIncrementer && endpos.Row < this.Rows  
+			    && 0 <= endpos.Col + colIncrementer && endpos.Col < this.Columns) {
+				endpos.Row += rowIncrementer;
+				endpos.Col += colIncrementer;
 			}
 
-			if ((rowOrColumn & RowOrColumn.Column) == RowOrColumn.Column)
-			{
-				endpos.Col = this.cols.Count - 1;
+			bool IsCellNull(int row, int col) {
+				if (this.Cells[row, col] == null) return true;
+
+				var cell = this.Cells[row, col];
+				if (!cell.MergeEndPos.IsEmpty) {
+					if (row == Math.Min(cell.MergeStartPos.Row, cell.MergeEndPos.Row)
+					    && col == Math.Min(cell.MergeStartPos.Col, cell.MergeEndPos.Col)) {
+						
+						return !(cell.Data != null && !string.IsNullOrEmpty(cell.GetData<string>()));
+					}
+				}
+				return true;
 			}
 
+			bool IsCellNotNull(int row, int col) {
+				if (this.Cells[row, col] == null) return false;
+
+				var cell = this.Cells[row, col];
+				if (!cell.MergeEndPos.IsEmpty) {
+					if (row == Math.Min(cell.MergeStartPos.Row, cell.MergeEndPos.Row)
+					    && col == Math.Min(cell.MergeStartPos.Col, cell.MergeEndPos.Col)) {
+
+						return cell.Data != null && !string.IsNullOrEmpty(cell.GetData<string>());
+					}
+				}
+				return cell.Data != null && !string.IsNullOrEmpty(cell.GetData<string>());
+			};
+
+			
+			
+			CellPosition FindCellToMove(CellPosition startPos, 
+				Func<int, int, bool> @while, 
+				Func<int, int, bool> breakIf,
+				Func<int, int, CellPosition> breakAct) {
+				
+				var workPos = new CellPosition(startPos.Row, startPos.Col);
+				
+				while(@while(workPos.Row, workPos.Col)) {
+					if (workPos.Row + rowIncrementer < 0 || workPos.Col + colIncrementer < 0
+					    || workPos.Row + rowIncrementer >= this.Rows || workPos.Col + colIncrementer >= this.Columns) {
+						// no more cell.
+						return workPos;
+					}
+
+					workPos.Row += rowIncrementer;
+					workPos.Col += colIncrementer;
+
+					if (@breakIf(workPos.Row, workPos.Col)) {
+						// edge found.
+						if (breakAct != null) {
+							return breakAct(workPos.Row, workPos.Col);
+						}
+
+						return workPos;
+					}
+				}
+
+				return workPos;
+			}
+
+			if (IsCellNotNull(endpos.Row, endpos.Col)) {
+				endpos = FindCellToMove(endpos, IsCellNotNull, IsCellNull,
+					(r, c) => new CellPosition(r - rowIncrementer, c - colIncrementer));
+			}
+			else {
+				endpos = FindCellToMove(endpos, IsCellNull, IsCellNotNull, null);
+			}
 			if (endpos != this.selEnd)
 			{
 				ApplyRangeSelection(this.selStart, endpos, appendSelect);
